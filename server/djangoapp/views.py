@@ -1,12 +1,16 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib.auth.models import User
+from django.db import models
 from django.shortcuts import get_object_or_404, render, redirect
-# from .models import related models
-# from .restapis import related methods
+from .models import CarDealer, DealerReview, CarMake, CarModel
+from .restapis import get_dealers_from_cf,get_request, get_dealer_reviews_from_cf, post_request
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
-from datetime import datetime
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.utils.datetime_safe import datetime
+from django.urls import reverse
 import logging
 import json
 
@@ -29,8 +33,7 @@ def contact(request):
     context = {}
     if request.method == "GET":
         return render(request, 'djangoapp/contact.html', context)
-        
-# Create a `login_request` view to handle sign in request
+
 def login_request(request):
     context = {}
     if request.method == "GET":
@@ -53,7 +56,7 @@ def login_request(request):
     else:
         return render(request, './user_login.html', context)
 
-# Create a `logout_request` view to handle sign out request
+
 def logout_request(request):
     # Get the user object based on session id in request
     print("Log out the user `{}`".format(request.user.username))
@@ -62,7 +65,6 @@ def logout_request(request):
     # Redirect user back to course list view
     return redirect('djangoapp:index')
 
-# Create a `registration_request` view to handle sign up request
 def registration_request(request):
     context = {}
     # If it is a GET request, just render the registration page
@@ -94,18 +96,87 @@ def registration_request(request):
         else:
             return render(request, './registration.html', context)
 
-# Update the `get_dealerships` view to render the index page with a list of dealerships
+
 def get_dealerships(request):
     context = {}
     if request.method == "GET":
+        url = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/dealerships/get"
+        # Get dealers from the URL
+        dealerships = get_dealers_from_cf(url)
+        # Return a list of dealer short name
+        context['dealerships'] = dealerships
         return render(request, 'djangoapp/index.html', context)
+        # return HttpResponse(dealer_names)
 
 
-# Create a `get_dealer_details` view to render the reviews of a dealer
-# def get_dealer_details(request, dealer_id):
-# ...
+def get_dealer_details(request, dealer_id):
+    context = {}
+    if request.method == "GET":
+        url = f"https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/get_reviews"
+        dealer_reviews = get_dealer_reviews_from_cf(url, dealer_id)
+        context['dealer_reviews'] = dealer_reviews
+        url2 = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/dealerships/get"
+        dealerships = get_dealers_from_cf(url2)
+        dealership_name = next((dealer.full_name for dealer in dealerships if dealer.id == dealer_id), None)
+        context['dealer_id'] = dealer_id
+        context['dealership_name'] = dealership_name
+        return render(request, 'djangoapp/dealer_details.html', context)
 
-# Create a `add_review` view to submit a review
-# def add_review(request, dealer_id):
-# ...
+def add_review(request, dealer_id):
+    context = {}
+    cars = CarModel.objects.filter(dealer_id=dealer_id)
+    context['cars'] = cars
+    context['dealer_id'] = dealer_id
+    url2 = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/dealerships/get"
+    dealerships = get_dealers_from_cf(url2)
+    dealership_name = next((dealer.full_name for dealer in dealerships if dealer.id == dealer_id), None)
+    context['dealer_id'] = dealer_id
+    context['dealership_name'] = dealership_name
 
+    if request.method == "GET":
+        # Query cars with the dealer id to be reviewed
+        return render(request, 'djangoapp/add_review.html', context)
+
+    elif request.method == "POST":
+        review = request.POST['review']
+        purchase = request.POST.get('purchase', False)
+        car_model = request.POST['car_model']
+        purchase_date_str = request.POST['purchase_date']
+        car_model_obj = CarModel.objects.filter(id=car_model)
+        username = request.user.username
+        car_model = car_model_obj[0].name
+        car_make = car_model_obj[0].car_make.name
+        car_year = car_model_obj[0].year
+        year = int(car_year.strftime("%Y"))
+        if purchase == 'on':
+            purchase = True
+        elif purchase != 'on':
+            purchase = False
+        # Convert purchasedate to ISO format
+
+        # Now update the json_payload["review"] with actual values
+        json_payload = {
+                "name": username,
+                "dealership": dealer_id,
+                "review": review,
+                "purchase": purchase,
+                "another": "field",
+                "purchase_date": purchase_date_str,
+                "car_make": car_make,
+                "car_model": car_model,
+                "car_year": year,
+        }
+        review_JSON=json.dumps(json_payload,default=str)
+        new_payload1 = {}
+        new_payload1["review"] = review_JSON
+        print("\nREVIEW:",review_JSON)
+
+        url = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/post_review"
+
+        # Assume you have a method to post the review, replace 'post_review' with your actual method
+        response = post_request(url, review_JSON)
+
+        return HttpResponseRedirect(reverse('djangoapp:dealer_details', args=(dealer_id,)))
+
+
+        # Redirect to the dealer details page
