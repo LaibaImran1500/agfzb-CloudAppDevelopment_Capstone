@@ -112,7 +112,7 @@ def get_dealerships(request):
 def get_dealer_details(request, dealer_id):
     context = {}
     if request.method == "GET":
-        url = f"https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/get_reviews"
+        url = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/get_reviews"
         dealer_reviews = get_dealer_reviews_from_cf(url, dealer_id)
         context['dealer_reviews'] = dealer_reviews
         url2 = "https://laibaimran-8000.theiadockernext-0-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/dealerships/get"
@@ -176,7 +176,8 @@ def add_review(request, dealer_id):
         # Assume you have a method to post the review, replace 'post_review' with your actual method
         response = post_request(url, review_JSON)
 
+        # Redirect to the dealer details page
         return HttpResponseRedirect(reverse('djangoapp:dealer_details', args=(dealer_id,)))
 
 
-        # Redirect to the dealer details page
+       
