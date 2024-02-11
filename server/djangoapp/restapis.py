@@ -100,4 +100,3 @@ def analyze_review_sentiments(dealerreview):
     label = response['sentiment']['document']['label']
 
     return label
-
