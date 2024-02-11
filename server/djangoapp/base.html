@@ -32,6 +32,7 @@
                         <a class="nav-link" href="{% url 'djangoapp:contact'%}">Contact <span class="sr-only">(current)</span></a>
                     </li>
                 </ul>
+    
                 {% if user.is_authenticated %}
                     <!-- Welcome message -->
                         <a class="btn btn-outline-primary ml-auto mr-3" href="">({{ user.first_name|default:user.username }})</a>
